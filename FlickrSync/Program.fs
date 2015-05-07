@@ -161,10 +161,14 @@ let genericQuery token tokenSecret flickrMethod methodParams =
     Http.RequestString( apiMethodCallsURI,
                         query = realQueryParameters,
                         httpMethod = "GET")
-    |> FlickrParser.ParseSets
     
 let getAllSets token tokenSecret =
     genericQuery token tokenSecret "flickr.photosets.getList" None
+    |> FlickrParser.ParseSets
+
+let getPhotos token tokenSecret setId =
+    genericQuery token tokenSecret "flickr.photosets.getPhotos" (Some("photoset_id", setId))
+    |> FlickrParser.ParseSet
 
 [<EntryPoint>]
 let main args =
@@ -188,6 +192,13 @@ let main args =
  
     printfn "Access Response: %A" auth
  
-    let sets = getAllSets (auth.["oauth_token"]) (auth.["oauth_token_secret"])
- 
+    getAllSets (auth.["oauth_token"]) (auth.["oauth_token_secret"])
+    |> Array.map (fun set -> set.Id.ToString(), set.Title, (getPhotos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())))
+    |> Array.map (fun tup -> match tup with (id, title, photos) -> id, title, (photos |> Array.map (fun photo -> photo.Id.ToString(), photo.Title)))
+    |> Array.map (fun tup -> match tup with (id, title, photos) -> 
+                                              printfn "Album: %s (%s)" title id
+                                              [for photo in photos -> match photo with (a,b) -> 
+                                                                                       printfn "    Photo: %s (%s)" a b] )
+    |> ignore
+
     0
