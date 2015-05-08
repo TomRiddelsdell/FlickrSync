@@ -1,28 +1,31 @@
 ﻿module PhotoContainers
 
     type PhotoVisibility = 
-    | Private
-    | Public
-    | Family
-    | Friends
-    | FamilyAndFriends
+    | Public            = 1
+    | Friends           = 2
+    | Family            = 3
+    | FamilyAndFriends  = 4
+    | Private           = 5
 
     type Photo(id, title, des, ispublic, isfriend, isfamily) = 
-        member val Id = id
-        member val Title = title
-        member val Description = des
+        member val Id : string= id
+        member val Title : string = title
+        member val Description : string = des
         member val Visibility = match (ispublic, isfriend, isfamily) with 
-                                | (true, _, _)          -> Public
-                                | (false, true, false)  -> Friends
-                                | (false, false, true)  -> Family
-                                | (false, true, true)   -> FamilyAndFriends
-                                | (false, false, false) -> Private
+                                | (true, _, _)          -> PhotoVisibility.Public
+                                | (false, true, false)  -> PhotoVisibility.Friends
+                                | (false, false, true)  -> PhotoVisibility.Family
+                                | (false, true, true)   -> PhotoVisibility.FamilyAndFriends
+                                | (false, false, false) -> PhotoVisibility.Private
 
-    type PhotoSet(id, title, des, primary, photos, videos, visibility_can_see_set) = 
-        member val Id = id
-        member val Title = title
-        member val Description = des
+    type Video(id, title, des, ispublic, isfriend, isfamily) = 
+        inherit Photo(id, title, des, ispublic, isfriend, isfamily) 
+
+    type Album(id, title, des, primary, photos, videos, visibility) = 
+        member val Id : string = id
+        member val Title : string = title
+        member val Description : string = des
         member val Primary = primary
-        member val Visibility = visibility_can_see_set
-        member val Photos = photos
-        member val Videos = videos
+        member val Visibility = visibility
+        member val Photos : Photo array = photos
+        member val Videos : Video array = videos

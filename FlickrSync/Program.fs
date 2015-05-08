@@ -7,6 +7,7 @@ open System.Security.Cryptography
 open System.Text
 open FSharp.Data
 open System.Collections.Generic
+open PhotoContainers
  
 // Twitter OAuth Constants
 let consumerKey = "8b2e1dfbe88471e9e5fdc7b558ce0b5d"
@@ -147,9 +148,7 @@ let genericQuery token tokenSecret flickrMethod methodParams =
          "oauth_timestamp", currentUnixTime.ToString();
          "oauth_version", "1.0"]
     let queryParametersMethod = ("method", flickrMethod)::queryParameters
-    let queryParametersUnsigned = match methodParams with
-                                  | Some x -> x::queryParametersMethod
-                                  | None -> queryParametersMethod 
+    let queryParametersUnsigned = methodParams @ queryParametersMethod
  
     let signingString = baseString "POST" accessTokenURI queryParametersUnsigned
     let oauth_signature = hmacsha1 signingKey signingString
@@ -163,11 +162,15 @@ let genericQuery token tokenSecret flickrMethod methodParams =
                         httpMethod = "GET")
     
 let getAllSets token tokenSecret =
-    genericQuery token tokenSecret "flickr.photosets.getList" None
+    genericQuery token tokenSecret "flickr.photosets.getList" []
     |> FlickrParser.ParseSets
 
 let getPhotos token tokenSecret setId =
-    genericQuery token tokenSecret "flickr.photosets.getPhotos" (Some("photoset_id", setId))
+    genericQuery token tokenSecret "flickr.photosets.getPhotos" ["photoset_id", setId; "media", "photos"]
+    |> FlickrParser.ParseSet
+
+let getVideos token tokenSecret setId =
+    genericQuery token tokenSecret "flickr.photosets.getPhotos" ["photoset_id", setId; "media", "videos"]
     |> FlickrParser.ParseSet
 
 [<EntryPoint>]
@@ -193,12 +196,20 @@ let main args =
     printfn "Access Response: %A" auth
  
     getAllSets (auth.["oauth_token"]) (auth.["oauth_token_secret"])
-    |> Array.map (fun set -> set.Id.ToString(), set.Title, (getPhotos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())))
-    |> Array.map (fun tup -> match tup with (id, title, photos) -> id, title, (photos |> Array.map (fun photo -> photo.Id.ToString(), photo.Title)))
-    |> Array.map (fun tup -> match tup with (id, title, photos) -> 
-                                              printfn "Album: %s (%s)" title id
-                                              [for photo in photos -> match photo with (a,b) -> 
-                                                                                       printfn "    Photo: %s (%s)" a b] )
+    |> Array.map (fun set -> 
+                            set, 
+                            (getPhotos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())),
+                            (getVideos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())))
+    |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
+                                                                    set, 
+                                                                    photos |> Array.map (fun p -> Photo(p.Id, p.Title, "", Convert.ToBoolean(p.Ispublic), Convert.ToBoolean(p.Isfriend), Convert.ToBoolean(p.Isfamily))),
+                                                                    videos |> Array.map (fun v -> Video(v.Id, v.Title, "", Convert.ToBoolean(v.Ispublic), Convert.ToBoolean(v.Isfriend), Convert.ToBoolean(v.Isfamily))) )
+    |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
+                                                                    Album(set.Id, set.Title, set.Description, set.Primary, photos, videos, set.VisibilityCanSeeSet) )
+    |> Array.map (fun album -> 
+                              printfn "Album: %s" album.Title
+                              [for p in album.Photos -> printfn "    Photo: %s (%s)" p.Title p.Id] |> ignore
+                              [for v in album.Videos -> printfn "    Video: %s (%s)" v.Title v.Id] |> ignore )
     |> ignore
 
     0
