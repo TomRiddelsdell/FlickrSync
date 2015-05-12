@@ -25,7 +25,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\FlickrSync.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartArguments>72157651968164220-9dea338e94a9700e 7b52b5bb9e82086c 131546405%40N02</StartArguments>
+    <StartArguments>C:\Users\Tom\Pictures 72157651968164220-9dea338e94a9700e 7b52b5bb9e82086c 131546405@N02</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -58,6 +58,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="PhotoSet.fs" />
     <Compile Include="ParseResponse.fs" />
+    <Compile Include="AlbumComparison.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Content Include="KeyAndSecret.txt" />

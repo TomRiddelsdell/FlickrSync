@@ -17,6 +17,8 @@
                                 | (false, false, true)  -> PhotoVisibility.Family
                                 | (false, true, true)   -> PhotoVisibility.FamilyAndFriends
                                 | (false, false, false) -> PhotoVisibility.Private
+        override this.ToString() = 
+            this.Title
 
     type Video(id, title, des, ispublic, isfriend, isfamily) = 
         inherit Photo(id, title, des, ispublic, isfriend, isfamily) 
@@ -29,3 +31,5 @@
         member val Visibility = visibility
         member val Photos : Photo array = photos
         member val Videos : Video array = videos
+        override this.ToString() = 
+            this.Title

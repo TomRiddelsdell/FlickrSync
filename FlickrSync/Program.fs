@@ -174,12 +174,13 @@ let getVideos token tokenSecret setId =
     |> FlickrParser.ParseSet
 
 [<EntryPoint>]
-let main args =
-    let auth =
-        if args.Length = 3 then
-            [   "oauth_token", args.[0];
-                "oauth_token_secret", args.[1];
-                "user_nsid", args.[2] ]
+let main argsv =
+    let args =
+        if argsv.Length = 4 then
+            [   "local_dir", argsv.[0];
+                "oauth_token", argsv.[1];
+                "oauth_token_secret", argsv.[2];
+                "user_nsid", argsv.[3] ]
             |> Map.ofList
         else
             let authres = requestToken()
@@ -192,24 +193,39 @@ let main args =
             Console.WriteLine("Authorisation code {0} used to get access token", authcode)
  
             accessToken (authres.["oauth_token"]) (authres.["oauth_token_secret"]) (authcode.ToString())
+            |> fun x -> x.Add ("local_dir", argsv.[0])
  
-    printfn "Access Response: %A" auth
+    printfn "Access Response: %A" args
  
-    getAllSets (auth.["oauth_token"]) (auth.["oauth_token_secret"])
-    |> Array.map (fun set -> 
-                            set, 
-                            (getPhotos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())),
-                            (getVideos (auth.["oauth_token"]) (auth.["oauth_token_secret"]) (set.Id.ToString())))
-    |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
-                                                                    set, 
-                                                                    photos |> Array.map (fun p -> Photo(p.Id, p.Title, "", Convert.ToBoolean(p.Ispublic), Convert.ToBoolean(p.Isfriend), Convert.ToBoolean(p.Isfamily))),
-                                                                    videos |> Array.map (fun v -> Video(v.Id, v.Title, "", Convert.ToBoolean(v.Ispublic), Convert.ToBoolean(v.Isfriend), Convert.ToBoolean(v.Isfamily))) )
-    |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
-                                                                    Album(set.Id, set.Title, set.Description, set.Primary, photos, videos, set.VisibilityCanSeeSet) )
-    |> Array.map (fun album -> 
-                              printfn "Album: %s" album.Title
-                              [for p in album.Photos -> printfn "    Photo: %s (%s)" p.Title p.Id] |> ignore
-                              [for v in album.Videos -> printfn "    Video: %s (%s)" v.Title v.Id] |> ignore )
-    |> ignore
+    // Get the list of albums from Flikr
+    let flickrAlbums = 
+        getAllSets (args.["oauth_token"]) (args.["oauth_token_secret"])
+        |> Array.map (fun set -> 
+                                set, 
+                                (getPhotos (args.["oauth_token"]) (args.["oauth_token_secret"]) (set.Id.ToString())),
+                                (getVideos (args.["oauth_token"]) (args.["oauth_token_secret"]) (set.Id.ToString())))
+        |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
+                                                                        set, 
+                                                                        photos |> Array.map (fun p -> Photo(p.Id, p.Title, "", Convert.ToBoolean(p.Ispublic), Convert.ToBoolean(p.Isfriend), Convert.ToBoolean(p.Isfamily))),
+                                                                        videos |> Array.map (fun v -> Video(v.Id, v.Title, "", Convert.ToBoolean(v.Ispublic), Convert.ToBoolean(v.Isfriend), Convert.ToBoolean(v.Isfamily))) )
+        |> Array.map (fun tup -> match tup with (set, photos, videos) -> 
+                                                                        Album(set.Id, set.Title, set.Description, set.Primary, photos, videos, set.VisibilityCanSeeSet) )
+
+    // Scan local directory and build up album list for comparison
+    let localAlbums = 
+        [| for dir in Directory.GetDirectories(args.["local_dir"]) ->
+                let photos = [| for pic in Directory.GetFiles(dir, "*.jpg;*.JPG", SearchOption.AllDirectories) -> Photo("", pic, "", false, true, true) |]
+                let videos = [| for vid in Directory.GetFiles(dir, "*.mp4;*.MP4", SearchOption.AllDirectories) -> Video("", vid, "", false, true, true) |]
+                Album("", dir, "", "", photos, videos, PhotoContainers.PhotoVisibility.FamilyAndFriends) |]
+
+    (*
+      Compare albums and build missing album list
+         - Album names will be matched by date and partial name match
+         - Existing Flicker album info will be maintained
+    *)
+    AlbumComparison.Partition localAlbums flickrAlbums
+    |> fun part -> match part with (matching, missing) -> 
+                                    [for a in matching -> printfn "Flickr already has: %s" a.Title] |> ignore
+                                    [for a in missing-> printfn "Flickr is missing: %s" a.Title] |> ignore
 
     0
