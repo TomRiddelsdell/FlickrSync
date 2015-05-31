@@ -131,3 +131,11 @@ let authHeaderAfterAuthenticated url httpMethod token tokenSecret queryParams =
     let realQueryParameters = ("oauth_signature", oauth_signature)::queryParameters
     let headerValue = createAuthorizeHeader realQueryParameters
     headerValue
+
+let BasicParameters token tokenSecret = 
+    ["oauth_consumer_key", consumerKey;
+     "oauth_nonce", nonce;
+     "oauth_signature_method", "HMAC-SHA1";
+     "oauth_token", token;
+     "oauth_timestamp", currentUnixTime.ToString();
+     "oauth_version", "1.0"]
